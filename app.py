@@ -1,9 +1,18 @@
 from flask import Flask, request
 from flask_restful import Resource, Api
-from Models import Clientes, Hamburguer, ItensPedido
+from Models import Clientes, Hamburguer, ItensPedido, Usuarios
+from flask_httpauth import HTTPBasicAuth
 
+auth = HTTPBasicAuth()
 app = Flask(__name__)
 api = Api(app)
+
+@auth.verify_password
+def verificacao(login, senha):
+    if not(login, senha):
+        return False
+    return Usuarios.query.filter_by(login=login, senha=senha).first()
+
 
 
 # Listar cliente individualmente
@@ -27,6 +36,7 @@ class Cliente(Resource):
             }
         return response
 
+    @auth.login_required
     def put(self, nome):
         cliente = Clientes.query.filter_by(nome=nome).first()
         try:
@@ -54,6 +64,7 @@ class Cliente(Resource):
             }
         return response
 
+    @auth.login_required
     def delete(self, nome):
         cliente = Clientes.query.filter_by(nome=nome).first()
         try:
@@ -78,6 +89,7 @@ class Lista_Cliente(Resource):
             in clientes]
         return response
 
+    @auth.login_required
     def post(self):
         dados = request.json
         cliente = Clientes(nome=dados['nome'], endereco=dados['endereco'], telefone=dados['telefone'],
@@ -110,6 +122,7 @@ class Hamburgueres(Resource):
             }
         return response
 
+    @auth.login_required
     def put(self, nome):
         hamburguer = Hamburguer.query.filter_by(nome=nome).first()
         try:
@@ -134,6 +147,7 @@ class Hamburgueres(Resource):
             }
         return response
 
+    @auth.login_required
     def delete(self, nome):
         hamburguer = Hamburguer.query.filter_by(nome=nome).first()
         try:
@@ -155,6 +169,7 @@ class Lista_Hamburgueres(Resource):
                     hamburgueres]
         return response
 
+    @auth.login_required
     def post(self):
         dados = request.json
         hamburguer = Hamburguer(nome=dados['nome'], ingredientes=dados['ingredientes'], preco=dados['preco'])
@@ -185,6 +200,7 @@ class Itens(Resource):
             }
         return response
 
+    @auth.login_required
     def put(self, descricao):
         item = ItensPedido.query.filter_by(descricao=descricao).first()
         try:
@@ -209,6 +225,7 @@ class Itens(Resource):
             }
         return response
 
+    @auth.login_required
     def delete(self, descricao):
         item = ItensPedido.query.filter_by(descricao=descricao).first()
         try:
@@ -230,6 +247,7 @@ class Lista_Itens(Resource):
                     itens]
         return response
 
+    @auth.login_required
     def post(self):
         dados = request.json
         item = ItensPedido(descricao=dados['descricao'], fabricante=dados['fabricante'], preco=dados['preco'])
@@ -243,12 +261,89 @@ class Lista_Itens(Resource):
         return response
 
 
+
+
+
+
+class Usuario(Resource):
+    def get(self, login):
+        usuario = Usuarios.query.filter_by(login=login).first()
+        try:
+            response = {
+                'usuario': usuario.login,
+                'senha': usuario.senha
+            }
+        except AttributeError:
+            response = {
+                'Status': 'Erro',
+                'Mensagem': 'Usuario não encontrado.'
+            }
+        return response
+
+    @auth.login_required
+    def put(self, login):
+        usuario = Usuarios.query.filter_by(login=login).first()
+        try:
+            dados = request.json
+            if 'login' in dados:
+                usuario.login = dados['login']
+            if 'senha' in dados:
+                usuario.senha = dados['senha']
+            usuario.save()
+            response = {
+                'usuario': usuario.login,
+                'senha': usuario.senha
+            }
+        except AttributeError:
+            response = {
+                'status': 'erro',
+                'mensagem': 'Usuario não encontrado'
+            }
+        return response
+
+    @auth.login_required
+    def delete(self, login):
+        usuario = Usuarios.query.filter_by(login=login).first()
+        try:
+            mensagem = 'Usuario {} excluido com sucesso'.format(usuario.login)
+            usuario.delete()
+            response = {'status': 'sucesso', 'mensagem': mensagem}
+        except AttributeError:
+            response = {
+                'status': 'erro',
+                'mensagem': 'Usuario não encontrado'
+            }
+        return response
+
+
+class Lista_Usuarios(Resource):
+    def get(self):
+        usuarios = Usuarios.query.all()
+        response = [{'login': i.login, 'senha': i.senha} for i in usuarios]
+        return response
+
+    @auth.login_required
+    def post(self):
+        dados = request.json
+        usuario = Usuarios(login=dados['login'], senha=dados['senha'])
+        usuario.save()
+        response = {
+                'usuario': usuario.login,
+                'senha': usuario.senha
+            }
+        return response
+
+
 api.add_resource(Cliente, '/cliente/<string:nome>/')
 api.add_resource(Lista_Cliente, '/clientes/')
 api.add_resource(Hamburgueres, '/hamburguer/<string:nome>/')
 api.add_resource(Lista_Hamburgueres, '/hamburgueres/')
 api.add_resource(Itens, '/item/<string:descricao>/')
 api.add_resource(Lista_Itens, '/itens/')
+api.add_resource(Usuario, '/usuario/<string:login>/')
+api.add_resource(Lista_Usuarios, '/usuarios/')
+
+
 
 if __name__ == '__main__':
     app.run(debug=True)
